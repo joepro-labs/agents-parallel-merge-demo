@@ -1,0 +1,43 @@
+# Deploy is DECOUPLED from merge. It triggers on push to main and always
+# ships the current tip of main. The concurrency group makes deploys coalesce:
+# many merges in quick succession collapse into ~1-2 deploys of the newest code
+# instead of N serialized hour-long deploys. This is what removes the block.
+name: deploy
+
+on:
+  push:
+    branches: [main]
+
+# One deploy at a time, "latest wins":
+#  - cancel-in-progress: true cancels a deploy that has NOT yet reached its
+#    irreversible step when a newer commit lands, so the newest tip ships.
+#  - If your deploy has a point of no return, gate the irreversible step so an
+#    already-committed deploy finishes and the next push deploys the new tip after.
+concurrency:
+  group: deploy-production
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    # Note: do NOT require manual approval / reviewers on this environment if you
+    # want true high-volume CD. Approval gates re-introduce the hour-long wait.
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }} # deploy exactly the tip that triggered this run
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - run: npm ci
+      - run: npm run build
+
+      # Idempotent deploy of the current build. Replace with your provider
+      # (Vercel, Fly, ECS, k8s, etc.). The key property: re-running it with a
+      # newer SHA simply ships the newer code — no per-PR release ceremony.
+      - name: Deploy
+        run: ./scripts/deploy.sh
