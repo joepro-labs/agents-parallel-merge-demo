@@ -1,0 +1,12 @@
+{
+  "name": "agents-parallel-merge-demo",
+  "version": "1.0.0",
+  "description": "Demo of high-volume parallel merging + coalescing deploy for AI agents",
+  "private": true,
+  "type": "commonjs",
+  "scripts": {
+    "lint": "node scripts/lint.js",
+    "test": "node --test",
+    "build": "node scripts/build.js"
+  }
+}

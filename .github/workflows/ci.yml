@@ -1,0 +1,40 @@
+# Fast required checks. These are the ONLY checks that gate merging.
+# They must run on `merge_group` so GitHub's merge queue can go green —
+# without this trigger the queue can never merge anything.
+name: ci
+
+on:
+  pull_request:
+  merge_group: # <-- critical: lets the merge queue run these checks
+
+# Per-PR (and per merge-queue entry) concurrency: a new push to a branch
+# cancels the previous in-flight run for that ref so CI never backs up.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  fast-checks:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10 # keep required checks fast; fail loud if they aren't
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm # cache deps so CI stays well under ~5 min
+
+      - run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Typecheck
+        run: npm run typecheck --if-present
+
+      - name: Unit tests
+        run: npm test
+
+      - name: Build
+        run: npm run build
